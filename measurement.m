@@ -1,22 +1,45 @@
 function measurement(varargin)
+% 
+
+global LL_MODEL;
 
 X.Bounds = [];
-X.F = [];
-X.Jx = '0.0';
-X.Jy = '0.0';
-X.Jz = '0.0';
-X.g = []; % can be a string or a callback
-X.Filename = '';
+X.ForwardField = [];
+X.DualField = [];
+X.Points = [];
+X.Function = [];
 
 X = parseargs(X, varargin{:});
 
 extents = X.Bounds(4:6) - X.Bounds(1:3);
 
+numMeas = length(LL_MODEL.measurements);
+
+exportFilename = sprintf('_export_%i.txt', numMeas);
+importFilename = sprintf('_import_%i.txt', numMeas);
+
+if ischar(X.ForwardField)
+    X.ForwardField = {{X.ForwardField}};
+end
+
+if ischar(X.DualField)
+    X.DualField = {{X.DualField}};
+end
+
+% Write a provisional import file so COMSOL does not crash
+fieldVals = zeros(size(X.Points,1), length(X.ForwardField));
+exportVals = [X.Points, fieldVals];
+dlmwrite(importFilename, exportVals);
+
 measStruct = struct('bounds', X.Bounds, ...
     'dimensions', nnz(extents), ...
-    'F', X.F, 'Jx', X.Jx, 'Jy', X.Jy, 'Jz', X.Jz, 'g', X.g, ...
-    'filename', X.Filename);
+    'function', X.Function, ...
+    'forwardField', X.ForwardField, ...
+    'dualField', X.DualField, ...
+    'points', X.Points, ...
+    'export', exportFilename, ...
+    'import', importFilename);
 
-global LL_MODEL;
 LL_MODEL.measurements{numel(LL_MODEL.measurements)+1} = measStruct;
+
 

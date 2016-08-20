@@ -48,6 +48,7 @@ function disjointMeshes = endSim_poisson(varargin)
     
     % chunks: array of structs with vertices, faces and a material tag.
     % they are mutually disjoint and their material tags may not be unique.
+    
     [disjointMeshes, chunks] = processGeometry(LL_MODEL.meshes, [sourceStructs measStructs], stepFile);
     
     comsolSTEPImport(geom, stepFile);
@@ -140,16 +141,19 @@ function disjointMeshes = endSim_poisson(varargin)
     tries = 1;
     while ~succeeded
         try
-            %model.sol('sol1').runAll;
-            
             % Forward: run Study Step 1 through Save Solutions 1
             model.sol('sol1').runFromTo('st1', 'su1');
+            
+            callbacks(model, LL_MODEL.forwardCallback, ...
+                LL_MODEL.measurements);
             
             % INSERT CHARGED PARTICLE OPTICS HERE
             % Also... run the field export here as needed!
             
-            % Dual: run Study Step 2 through Stationary 2
-            model.sol('sol1').runFromTo('st2', 's2');
+            if X.Gradient
+                % Dual: run Study Step 2 through Stationary 2
+                model.sol('sol1').runFromTo('st2', 's2');
+            end
             
             succeeded = 1;
             if X.SaveFields
@@ -157,17 +161,7 @@ function disjointMeshes = endSim_poisson(varargin)
             end
         catch crapception
             keyboard
-            %{
-            if tries < maxSolveAttempts
-                warning('Solve failed.  Re-meshing and re-solving.');
-                tries = tries + 1;
-                
-                attemptMeshing(model, theMesh, hmaxes(tries), success.hgrad, ...
-                    maxMeshAttempts);
-            else
-                error('Solution failed with %i tries', tries);
-            end
-            %}
+            % attempt remeshing
         end
     end
 
@@ -175,28 +169,68 @@ function disjointMeshes = endSim_poisson(varargin)
         fprintf('Solve succeeded with %i tries\n', tries);
     end
     
-    if isa(LL_MODEL.forwardCallback, 'function_handle')
-        LL_MODEL.forwardCallback()
-    end
+    
     
     %% Save the objective function and sensitivity information
 
-    model.result.table('tblF').clearTableData;
-    model.result.numerical('intF').set('table', 'tblF');
-    model.result.numerical('intF').setResult;
+    %model.result.table('tblF').clearTableData;
+    %model.result.numerical('intF').set('table', 'tblF');
+    %model.result.numerical('intF').setResult;
 
     if X.Gradient
         model.result.export('exportSurfaceDF').run;
     end
 
-    model.result.export('expTableF').run;
+    %model.result.export('expTableF').run;
+    
+end
+
+function callbacks(model, forwardCallback, measurements)
+
+    assert(length(measurements) <= 1);
+    if ~isempty(measurements)
+        meas = measurements{1};
+        
+        % Export the export
+        export_name = sprintf('meas_%i', 1);
+        export = model.result.export(export_name);
+        
+        try
+            export.run()
+        catch exc
+            keyboard
+        end
+        
+        % Load the export
+        
+        fid = fopen(meas.export);
+        AA = cell2mat(textscan(fid, '%n%n%n%n', 'CommentStyle', '%'));
+        fclose(fid);
+        
+        values = AA(:, 4:end);
+        nx = numel(unique(meas.points(:,1)));
+        ny = numel(unique(meas.points(:,2)));
+        nz = numel(unique(meas.points(:,3)));
+        sz = [nx ny nz];
+        [F, DF] = meas.function(values);
+        
+        adj_src = -8.85e-12 * DF;
+        
+        % Write the import
+        dlmwrite(meas.import, [meas.points, adj_src(:)]);
+        
+    end
+    
+    if isa(forwardCallback, 'function_handle')
+        forwardCallback()
+    end
     
     %% Save other requested exports
-    for nn = 1:length(LL_MODEL.exports)
-    if strcmpi(LL_MODEL.exports{nn}.mode, 'Forward')
-        doExport(model, LL_MODEL.exports{nn}, sprintf('export_%i',nn));
-    end
-    end
+%     for nn = 1:length(exports)
+%     if strcmpi(exports{nn}.mode, 'Forward')
+%         doExport(model, exports{nn}, sprintf('export_%i',nn));
+%     end
+%     end
 
 end
 
@@ -458,30 +492,50 @@ function comsolAdjointPhysics(model, meshes, measurements, measStructs, ...
     measDims = [];
     measSel = {};
     for ss = 1:numMeasurements
+        meas = measurements{ss};
+        measDims(ss) = meas.dimensions;
         
-        measDims(ss) = measurements{ss}.dimensions;
-        
-        %bounds = measurements{ss}.bounds;
-        %extent = bounds(4:6) - bounds(1:3);
-        
-
-        %if ~X.Gradient
-        %    continue;
-        %end
-
-        currName = sprintf('adjSpaceCharge%i', ss);
-
-        if measurements{ss}.dimensions == 0 % point
+        if meas.dimensions == 0 % point
             error('not handling points yet')
-        elseif measurements{ss}.dimensions == 2 % surface current
+        elseif meas.dimensions == 2 % surface current
             error('not handling surfaces yet')
-        elseif measurements{ss}.dimensions == 3 % volume current
-
-            scd = model.physics('es2').create(currName, 'SpaceChargeDensity', 3);
-            scd.selection.named(measStructs{ss}.selectionName);
-            %scd.set('rhoq', LL_MODEL.measurements{ss}.rhoq);
-            scd.set('rhoq', measurements{ss}.g); % should it be g or not?
-            scd.name(sprintf('Adjoint charge %i', ss));
+        elseif meas.dimensions == 3 % volume current
+            
+            if ~isempty(meas.function)
+                funcname = sprintf('adjfunc%i',ss);
+                resource_name = ['res_', meas.import];
+                
+                interpolation = model.func.create('int1', 'Interpolation');
+                interpolation.label(sprintf('Interpolation %i', ss));
+                interpolation.model('mod1'); % MUST NOT FORGET
+                interpolation.set('sourcetype', 'model');
+                interpolation.set('importeddim', '3D');
+                interpolation.set('defvars', 'on');
+                interpolation.set('importedname', meas.import);
+                interpolation.set('importedstruct', 'Spreadsheet');
+                interpolation.set('modelres', resource_name);
+                
+                resfile = model.file.create(resource_name);
+                resfile.resource([pwd filesep meas.import]); % ABSOLUTE PATH
+                
+                interpolation.set('source', 'file');
+                interpolation.set('nargs', '3');
+                interpolation.set('struct', 'spreadsheet');
+                interpolation.set('funcs', {funcname, '1'});
+                interpolation.set('frame', 'material');
+                
+                if strcmpi(meas.dualField, 'V')
+                    currName = sprintf('adjSpaceCharge%i', ss);
+                    scd = model.physics('es2').create(currName, 'SpaceChargeDensity', 3);
+                    scd.selection.named(measStructs{ss}.selectionName);
+                    %scd.set('rhoq', LL_MODEL.measurements{ss}.rhoq);
+                    scd.set('rhoq', funcname); % should it be g or not?
+                     scd.name(sprintf('Adjoint charge %i', ss));
+                else
+                    error('Gotta handle %s', meas.dualField)
+                end
+            end
+            
 
             measSel = {measSel{:} measStructs{ss}.selectionName};
         end
@@ -585,7 +639,7 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
             % The point here is just to mark off a chunk of space and force the
             % tetrahedra to line up with its surfaces.
 
-            r = t6.model.Rect(@(p) bounds);
+            r = dmodel.Rect(@(p) bounds);
             m = r.meshes;
             srcMeasRecords{nn}.vertices = m{1}.patchVertices;
             srcMeasRecords{nn}.faces = m{1}.faces;
@@ -1186,12 +1240,12 @@ end
 
 
 function comsolMeasurements(model, measurements, doCalculateGradient)
+
+    assert(numel(measurements) == 1);
     
     bounds = measurements{1}.bounds;
     extent = bounds(4:6) - bounds(1:3);
     measDims = nnz(extent);
-    
-    %global LL_MODEL;
     
     % The surfaces data set should export the dual pressure DF at
     % all points on all surfaces.
@@ -1206,32 +1260,56 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
     measData.selection.geom('geom1', measDims(1));
     measData.selection.named('measSel');
 
-    assert(numel(measurements) == 1);
-    tblF = model.result.table.create('tblF', 'Table');
-
-    if measDims(1) == 0
-        intPt = model.result.numerical.create('intF', 'EvalPoint');
-        intPt.selection.named('measSel');
-        intPt.set('probetag', 'none');
-        intPt.set('table', 'tblF');
-        intPt.set('expr', measurements{1}.F);
+    if measDims(1) ~= 3
+        error('Can only do a 3D measurement right now')
+    else
+        export_name = sprintf('meas_%i', 1);
         
-    elseif measDims(1) == 2
-        intSurf = model.result.numerical.create('intF', 'IntSurface');
-        intSurf.name('F');
-        intSurf.selection.named('measSel');
-        intSurf.set('probetag', 'none');
-        intSurf.set('table', 'tblF');
-        intSurf.set('expr', measurements{1}.F);
+        % Write the set of data points
+        pointFile = sprintf([pwd filesep '%s_points.txt'], export_name);
+        assert(size(measurements{1}.points,2) == 3);
+        dlmwrite(pointFile, measurements{1}.points, 'delimiter', '\t');
         
-    elseif measDims(1) == 3
-        intVol = model.result.numerical.create('intF', 'IntVolume');
-        intVol.name('F');
-        intVol.selection.named('measSel');
-        intVol.set('probetag', 'none');
-        intVol.set('table', 'tblF');
-        intVol.set('expr', measurements{1}.F);
+        % Create the field export
+        assert(iscell(measurements{1}.forwardField));
+        
+        export = model.result.export.create(export_name, 'Data');
+        export.label(export_name);
+        export.set('location', 'file');
+        %export.set('descr', {'Electric potential'});
+        export.set('filename', measurements{1}.export);
+        %export.set('unit', {'V'});
+        export.set('coordfilename', [pwd filesep pointFile]);
+        export.set('expr', measurements{1}.forwardField);
+    %    model.save([pwd filesep 'mid_export.mph']);
     end
+    
+    
+    
+    %tblF = model.result.table.create('tblF', 'Table');
+%     if measDims(1) == 0
+%         intPt = model.result.numerical.create('intF', 'EvalPoint');
+%         intPt.selection.named('measSel');
+%         intPt.set('probetag', 'none');
+%         intPt.set('table', 'tblF');
+%         intPt.set('expr', measurements{1}.F);
+%         
+%     elseif measDims(1) == 2
+%         intSurf = model.result.numerical.create('intF', 'IntSurface');
+%         intSurf.name('F');
+%         intSurf.selection.named('measSel');
+%         intSurf.set('probetag', 'none');
+%         intSurf.set('table', 'tblF');
+%         intSurf.set('expr', measurements{1}.F);
+%         
+%     elseif measDims(1) == 3
+%         intVol = model.result.numerical.create('intF', 'IntVolume');
+%         intVol.name('F');
+%         intVol.selection.named('measSel');
+%         intVol.set('probetag', 'none');
+%         intVol.set('table', 'tblF');
+%         intVol.set('expr', measurements{1}.F);
+%     end
 
     if doCalculateGradient
         model.result.export.create('exportSurfaceDF', 'Data');
@@ -1244,8 +1322,8 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
         model.result.export('exportSurfaceDF').set('lagorder', '5');
     end
 
-    model.result.export.create('expTableF', 'tblF', 'Table');
-    model.result.export('expTableF').set('filename', 'F.txt');
+    %model.result.export.create('expTableF', 'tblF', 'Table');
+    %model.result.export('expTableF').set('filename', 'F.txt');
 end
 
 
