@@ -1170,7 +1170,7 @@ function comsolMeshParameters(theMesh, model, measurements, domains, ...
     sz.selection.named('measSel');
     sz.set('custom', 'on');
     sz.set('hmaxactive', 'on');
-    sz.set('hmax', 2e-3);
+    sz.set('hmax', measurements{1}.hmax);
     %warning('Measurement hmax is 15');
 
     theMesh.feature.create('ftri1', 'FreeTri');
