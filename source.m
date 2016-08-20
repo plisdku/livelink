@@ -15,4 +15,4 @@ srcStruct = struct('bounds', X.Bounds, ...
     'Mx', X.Mx, 'My', X.My, 'Mz', X.Mz);
 
 global LL_MODEL;
-LL_MODEL.sources{numel(LL_MODEL.sources)+1} = srcStruct;
+LL_MODEL.sources{numel(LL_MODEL.sources)+1} = srcStruct;\% hahaha
