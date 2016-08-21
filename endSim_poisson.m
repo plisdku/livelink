@@ -203,24 +203,33 @@ function callbacks(model, forwardCallback, measurements)
         
         % Load the export
         
-        fid = fopen(meas.export);
-        AA = cell2mat(textscan(fid, '%n%n%n%n', 'CommentStyle', '%'));
-        fclose(fid);
+        if strcmpi(meas.forwardField, 'V')
+            formatStr = '%n%n%n%n';
+            prefactor = 1;
+        elseif strcmpi(meas.forwardField, 'E')
+            formatStr = '%n%n%n%n%n%n';
+            prefactor = -1;
+        end
         
+        fid = fopen(meas.export);
+        AA = cell2mat(textscan(fid, formatStr, 'CommentStyle', '%'));
+        fclose(fid);
+         
         values = AA(:, 4:end);
-        nx = numel(unique(meas.points(:,1)));
-        ny = numel(unique(meas.points(:,2)));
-        nz = numel(unique(meas.points(:,3)));
-        sz = [nx ny nz];
+        %nx = numel(unique(meas.points(:,1)));
+        %ny = numel(unique(meas.points(:,2)));
+        %nz = numel(unique(meas.points(:,3)));
+        %sz = [nx ny nz];
         [F, DF] = meas.function(values);
         
-        adj_src = -8.85e-12 * DF;
+        adj_src = prefactor*reshape(-8.85e-12 * DF, size(meas.points,1), []);
+        
         
         % Write the import
-        %dlmwrite(meas.import, [meas.points, adj_src(:)]);
-        writegrid(meas.import, ...
-            meas.points(:,1), meas.points(:,2), meas.points(:,3), ...
-            adj_src(:));
+        dlmbarf(meas.import, [meas.points, adj_src]);
+        %writegrid(meas.import, ...
+        %    meas.points(:,1), meas.points(:,2), meas.points(:,3), ...
+        %    adj_src(:));
         
     end
     
@@ -516,7 +525,7 @@ function comsolAdjointPhysics(model, meshes, measurements, measStructs, ...
                 interpolation.set('defvars', 'on');
                 interpolation.set('importedname', meas.import);
                 % don't define as spreadsheet; get grid!
-                %interpolation.set('importedstruct', 'Spreadsheet');
+                interpolation.set('importedstruct', 'Spreadsheet');
                 interpolation.set('modelres', resource_name);
                 
                 resfile = model.file.create(resource_name);
@@ -533,7 +542,7 @@ function comsolAdjointPhysics(model, meshes, measurements, measStructs, ...
                     funcx = [funcname 'x'];
                     funcy = [funcname 'y'];
                     funcz = [funcname 'z'];
-                    interpolation.set('funcs', {funcx, '1', funcy, '1', funcz, '1'});
+                    interpolation.set('funcs', {funcx, '1'; funcy, '2'; funcz, '3'});
                 end
                 
                 if strcmpi(meas.dualField, 'V')
@@ -1302,7 +1311,12 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
         export.set('filename', measurements{1}.export);
         %export.set('unit', {'V'});
         export.set('coordfilename', [pwd filesep pointFile]);
-        export.set('expr', measurements{1}.forwardField);
+        
+        if strcmpi(measurements{1}.forwardField, 'V')
+            export.set('expr', 'V');
+        elseif strcmpi(measurements{1}.forwardField, 'E')
+            export.set('expr', {'es.Ex', 'es.Ey', 'es.Ez'});
+        end
     %    model.save([pwd filesep 'mid_export.mph']);
     end
     

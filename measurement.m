@@ -28,9 +28,13 @@ if ischar(X.DualField)
 end
 
 % Write a provisional import file so COMSOL does not crash
-fieldVals = zeros(size(X.Points,1), length(X.ForwardField));
+if strcmpi(X.ForwardField{1}, 'V')
+    fieldVals = zeros(size(X.Points,1), 1);
+elseif strcmpi(X.ForwardField{1}, 'E')
+    fieldVals = zeros(size(X.Points,1), 3);
+end
 exportVals = [X.Points, fieldVals];
-dlmwrite(importFilename, exportVals);
+dlmbarf(importFilename, exportVals);
 
 measStruct = struct('bounds', X.Bounds, ...
     'dimensions', nnz(extents), ...
