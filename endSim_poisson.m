@@ -217,7 +217,10 @@ function callbacks(model, forwardCallback, measurements)
         adj_src = -8.85e-12 * DF;
         
         % Write the import
-        dlmwrite(meas.import, [meas.points, adj_src(:)]);
+        %dlmwrite(meas.import, [meas.points, adj_src(:)]);
+        writegrid(meas.import, ...
+            meas.points(:,1), meas.points(:,2), meas.points(:,3), ...
+            adj_src(:));
         
     end
     
@@ -512,7 +515,8 @@ function comsolAdjointPhysics(model, meshes, measurements, measStructs, ...
                 interpolation.set('importeddim', '3D');
                 interpolation.set('defvars', 'on');
                 interpolation.set('importedname', meas.import);
-                interpolation.set('importedstruct', 'Spreadsheet');
+                % don't define as spreadsheet; get grid!
+                %interpolation.set('importedstruct', 'Spreadsheet');
                 interpolation.set('modelres', resource_name);
                 
                 resfile = model.file.create(resource_name);
