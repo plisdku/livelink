@@ -525,8 +525,16 @@ function comsolAdjointPhysics(model, meshes, measurements, measStructs, ...
                 interpolation.set('source', 'file');
                 interpolation.set('nargs', '3');
                 interpolation.set('struct', 'spreadsheet');
-                interpolation.set('funcs', {funcname, '1'});
                 interpolation.set('frame', 'material');
+                
+                if strcmpi(meas.dualField, 'V')
+                    interpolation.set('funcs', {funcname, '1'});
+                elseif strcmpi(meas.dualField, 'E')
+                    funcx = [funcname 'x'];
+                    funcy = [funcname 'y'];
+                    funcz = [funcname 'z'];
+                    interpolation.set('funcs', {funcx, '1', funcy, '1', funcz, '1'});
+                end
                 
                 if strcmpi(meas.dualField, 'V')
                     currName = sprintf('adjSpaceCharge%i', ss);
@@ -534,7 +542,17 @@ function comsolAdjointPhysics(model, meshes, measurements, measStructs, ...
                     scd.selection.named(measStructs{ss}.selectionName);
                     %scd.set('rhoq', LL_MODEL.measurements{ss}.rhoq);
                     scd.set('rhoq', funcname); % should it be g or not?
-                     scd.name(sprintf('Adjoint charge %i', ss));
+                    scd.name(sprintf('Adjoint charge %i', ss));
+                elseif strcmpi(meas.dualField, 'E')
+                    
+                    polName = sprintf('adjPolarization%i', ss);
+                    
+                    ccn = model.physics('es2').create(polName, 'ChargeConservation', 3);
+                    ccn.selection.named(measStructs{ss}.selectionName);
+                    ccn.set('ConstitutiveRelationD', 'Polarization');
+                    ccn.set('P', {funcx, funcy, funcz});
+                    ccn.name(sprintf('Adjoint polarization %i', ss));
+                    
                 else
                     error('Gotta handle %s', meas.dualField)
                 end
