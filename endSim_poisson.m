@@ -250,7 +250,7 @@ function doExport(model, exportStruct, export_name)
     
     pointFile = sprintf([pwd filesep '%s_points.txt'], export_name);
     assert(size(exportStruct.points,2) == 3);
-    dlmwrite(pointFile, exportStruct.points, 'delimiter', '\t');
+    dlmbarf(pointFile, exportStruct.points);
     
     export = model.result.export.create(export_name, 'Data');
     export.label(export_name);
@@ -406,7 +406,7 @@ function comsolAssignMaterials(model, geom, chunks, ...
 
         allMaterials = cellfun(@(a) a.material, chunks);
         domainMaterial = allMaterials(domainChunks);
-        dlmwrite(domainMaterialsFile, domainMaterial);
+        dlmbarf(domainMaterialsFile, domainMaterial);
     end
 
     for mm = 1:numMaterials
@@ -596,7 +596,7 @@ function comsolMovableMeshSelection(model, meshes, cacheExists, movableDomainsFi
         end
     else
         movableMeshDomains = findMovableBoundaries(model, meshes);
-        dlmwrite(movableDomainsFile, movableMeshDomains);
+        dlmbarf(movableDomainsFile, movableMeshDomains);
     end
 
     sel = model.selection.create('movableMeshes', 'Explicit');
@@ -1299,7 +1299,7 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
         % Write the set of data points
         pointFile = sprintf([pwd filesep '%s_points.txt'], export_name);
         assert(size(measurements{1}.points,2) == 3);
-        dlmwrite(pointFile, measurements{1}.points, 'delimiter', '\t');
+        dlmbarf(pointFile, measurements{1}.points);
         
         % Create the field export
         assert(iscell(measurements{1}.forwardField));
