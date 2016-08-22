@@ -162,6 +162,8 @@ function disjointMeshes = endSim_poisson(varargin)
         catch crapception
             keyboard
             % attempt remeshing
+            % Get error
+            
         end
     end
 
