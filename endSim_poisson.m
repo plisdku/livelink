@@ -140,10 +140,13 @@ function disjointMeshes = endSim_poisson(varargin)
     succeeded = 0;
     tries = 1;
     while ~succeeded
-        try
+        %try
             % Forward: run Study Step 1 through Save Solutions 1
             model.sol('sol1').runFromTo('st1', 'su1');
             
+            if X.SaveFields
+                model.save([pwd filesep 'fieldsforward_' X.MPH]);
+            end
             callbacks(model, LL_MODEL.forwardCallback, ...
                 LL_MODEL.measurements);
             
@@ -159,10 +162,10 @@ function disjointMeshes = endSim_poisson(varargin)
             if X.SaveFields
                 model.save([pwd filesep 'fields_' X.MPH]);
             end
-        catch crapception
-            keyboard
+        %catch crapception
+           % keyboard
             % attempt remeshing
-        end
+        %end
     end
 
     if tries > 1
@@ -220,13 +223,13 @@ function callbacks(model, forwardCallback, measurements)
         %ny = numel(unique(meas.points(:,2)));
         %nz = numel(unique(meas.points(:,3)));
         %sz = [nx ny nz];
-        [F, DF] = meas.function(values);
+        [F, DF] = meas.function(AA(:,1:3), values);
         
-        adj_src = prefactor*reshape(-8.85e-12 * DF, size(meas.points,1), []);
+        %adj_src = prefactor*reshape(-8.85e-12 * DF, size(meas.points,1), []);
         
-        
+        adj_src = prefactor*-8.85e-12 * DF;
         % Write the import
-        dlmbarf(meas.import, [meas.points, adj_src]);
+        dlmbarf(meas.import, [AA(:,1:3), adj_src]);
         %writegrid(meas.import, ...
         %    meas.points(:,1), meas.points(:,2), meas.points(:,3), ...
         %    adj_src(:));
@@ -252,6 +255,9 @@ function doExport(model, exportStruct, export_name)
     assert(size(exportStruct.points,2) == 3);
     dlmbarf(pointFile, exportStruct.points);
     
+
+
+
     export = model.result.export.create(export_name, 'Data');
     export.label(export_name);
     export.set('location', 'file');
@@ -1306,7 +1312,9 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
         
         export = model.result.export.create(export_name, 'Data');
         export.label(export_name);
-        export.set('location', 'file');
+        %export.set('location', 'file');
+        export.set('resolution', 'custom');
+        export.set('lagorder', '2');
         %export.set('descr', {'Electric potential'});
         export.set('filename', measurements{1}.export);
         %export.set('unit', {'V'});
