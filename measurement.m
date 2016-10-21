@@ -14,8 +14,10 @@ X = parseargs(X, varargin{:});
 
 if ~isempty(X.Bounds)
     extents = X.Bounds(4:6) - X.Bounds(1:3);
+    dimensions = nnz(extents);
 else
     extents = [];
+    dimensions = 3;
 end
 
 numMeas = length(LL_MODEL.measurements);
@@ -41,7 +43,7 @@ exportVals = [X.Points, fieldVals];
 dlmbarf(importFilename, exportVals);
 
 measStruct = struct('bounds', X.Bounds, ...
-    'dimensions', nnz(extents), ...
+    'dimensions', dimensions, ...
     'function', X.Function, ...
     'forwardField', X.ForwardField, ...
     'dualField', X.DualField, ...

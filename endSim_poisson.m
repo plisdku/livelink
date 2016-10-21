@@ -716,7 +716,7 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
         end
         
         if isempty(extent)
-            srcMeasRecords{nn}.dimensions = -1 % whole space
+            srcMeasRecords{nn}.dimensions = 3; % whole space
         else
             srcMeasRecords{nn}.dimensions = nnz(extent);
         end
@@ -856,7 +856,7 @@ function outChunks = vennChunks(inChunks, subChunks)
     
     outChunks = inChunks;
     for iSub = 1:numel(subChunks)
-    if subChunks{iSub}.dimensions == 3
+    if subChunks{iSub}.dimensions == 3 && isfield(subChunks{iSub}, 'vertices') % 3D w/o vertices is whole space
         
         numInChunks = numel(outChunks);
         nNew = numInChunks + 1;
