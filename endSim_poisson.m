@@ -744,7 +744,7 @@ function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
     % now figure out the disjointeries
     for mm = numMeshes:-1:1
     if ~rectInRect(bbox(meshes{mm}.vertices), excludeBounds)
-    
+        fprintf('\tdisjointing mesh %i with...\n', mm)
         v = meshes{mm}.vertices;
         f = meshes{mm}.faces;
         
@@ -758,6 +758,7 @@ function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
             v, f);
     end
     end
+    fprintf('\tDone making disjoint meshes\n');
 end
 
 % THIS IS THE BRUTE_FORCE VERSION
@@ -810,10 +811,10 @@ function meshes = uniteMaterials(inMeshes)
     numInputs = numel(inMeshes);
     for mm = 1:numInputs
     if ~isempty(inMeshes{mm})
-        
         iMat = inMeshes{mm}.material;
         
         if iMat <= numel(meshes) && isfield(meshes{iMat}, 'vertices')
+            fprintf('\tuniting mesh %i with its material...\n', mm)
             % If the material has been unioned before, unite with previous.
             [meshes{iMat}.vertices, meshes{iMat}.faces] = neflab.nefUnion(...
                 inMeshes{mm}.vertices, inMeshes{mm}.faces, ...
@@ -843,13 +844,14 @@ function outChunks = vennChunks(inChunks, subChunks)
         nNew = numInChunks + 1;
         
         for iIn = 1:numInChunks
-            
+            fprintf('\tIntersecting %i with %i...\n', iIn, iSub);
             [vInter, fInter] = neflab.nefIntersection(...
                 outChunks{iIn}.vertices, outChunks{iIn}.faces, ...
                 subChunks{iSub}.vertices, subChunks{iSub}.faces);
             
             if ~isempty(vInter)
                 
+                fprintf('\tDiffing %i with %i...\n', iIn, iSub);
                 [vDiff, fDiff] = neflab.nefDifference(...
                     outChunks{iIn}.vertices, outChunks{iIn}.faces, ...
                     subChunks{iSub}.vertices, subChunks{iSub}.faces);
@@ -1298,13 +1300,13 @@ function comsolPlots(X, model)
         model.result('pg3').feature('surf1').set('colortable', 'OrangeCrush');
 
         model.result('pg3').feature('arws1').set(...
-            'expr', {'nx*DF*(DF<0)' 'ny*DF*(DF<0)' 'nz*DF*(DF<0)'});
+            'expr', {'nx*DF*(DF>0)' 'ny*DF*(DF>0)' 'nz*DF*(DF>0)'});
         model.result('pg3').feature('arws1').set('arrowbase', 'head');
         %model.result('pg3').feature('arws1').set('scale', '3.2787942186813154E-10');
         %model.result('pg3').feature('arws1').set('scaleactive', false);
 
         model.result('pg3').feature('arws2').set(...
-            'expr', {'nx*DF*(DF>0)' 'ny*DF*(DF>0)' 'nz*DF*(DF>0)'});
+            'expr', {'nx*DF*(DF<0)' 'ny*DF*(DF<0)' 'nz*DF*(DF<0)'});
         model.result('pg3').feature('arws2').set('arrowbase', 'tail');
         model.result('pg3').feature('arws2').set('color', 'blue');
         %model.result('pg3').feature('arws2').set('scale', '4.240512841916214E-10');
@@ -1354,7 +1356,7 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
         export.label(export_name);
         %export.set('location', 'file');
         export.set('resolution', 'custom');
-        export.set('lagorder', '2');
+        export.set('lagorder', '3');
         %export.set('descr', {'Electric potential'});
         export.set('filename', measurements{1}.export);
         %export.set('unit', {'V'});

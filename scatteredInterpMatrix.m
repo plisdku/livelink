@@ -1,4 +1,4 @@
-function [interpMatrix, normalizedRestriction] = scatteredInterpMatrix(xyz_tet, xs, ys, zs)
+function [interpMatrix] = scatteredInterpMatrix(xyz_tet, xs, ys, zs)
 % scatteredInterpMatrix  Interpolation matrix from points to Cartesian grid
 %
 % [M,R] = scatteredInterpMatrix(xyz_sample, xz, ys, zs)
@@ -40,11 +40,11 @@ for ii = 1:numTets
 end
 
 %% Get volume associated with each tet vertex
-
-tetVertAdjacency = sparse(ia(triVerts(:)), repmat(1:numTets,1,4), ...
-    ones(numel(triVerts),1));
-
-vertVol = 0.25*tetVertAdjacency*tetVolumes;
+% 
+% tetVertAdjacency = sparse(ia(triVerts(:)), repmat(1:numTets,1,4), ...
+%     ones(numel(triVerts),1));
+% 
+% vertVol = 0.25*tetVertAdjacency*tetVolumes;
 
 %% Build interpolation matrix
 
@@ -55,10 +55,10 @@ vals = ravel(transpose(baryCoords));
 interpMatrix = sparse(rows, cols, vals, numCartPoints, numTetPoints);
 
 %% Build restriction matrix
-
-divideByVol = spdiags(...
-    1./vertVol, 0, numel(vertVol), numel(vertVol));
-normalizedRestriction = divideByVol * transpose(interpMatrix);
+% 
+% divideByVol = spdiags(...
+%     1./vertVol, 0, numel(vertVol), numel(vertVol));
+% normalizedRestriction = divideByVol * transpose(interpMatrix);
 
 end
 
