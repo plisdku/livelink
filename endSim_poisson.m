@@ -738,30 +738,70 @@ function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
     numMeshes = numel(meshes);
     disjointMeshes = cell(size(meshes));
     
+    vAccum = [];
+    fAccum = [];
+    
     % now figure out the disjointeries
-    for mm = 1:numMeshes
+    for mm = numMeshes:-1:1
     if ~rectInRect(bbox(meshes{mm}.vertices), excludeBounds)
     
         v = meshes{mm}.vertices;
         f = meshes{mm}.faces;
         
-        for nn = (mm+1):numMeshes
-        if ~rectInRect(bbox(meshes{nn}.vertices), excludeBounds)
-            
-            v2 = meshes{nn}.vertices;
-            f2 = meshes{nn}.faces;
-            
-            [v, f] = neflab.nefDifference(v, f, v2, f2);
-        end
-        end
+        [v,f] = neflab.nefDifference(v, f, vAccum, fAccum);
         
         disjointMeshes{mm}.vertices = v;
         disjointMeshes{mm}.faces = f;
         disjointMeshes{mm}.material = meshes{mm}.material;
         
+        [vAccum, fAccum] = neflab.nefUnion(vAccum, fAccum, ...
+            v, f);
     end
     end
 end
+
+% THIS IS THE BRUTE_FORCE VERSION
+% function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
+%     
+%     myPatch = @(v,f,c) patch('Vertices', v, 'Faces', f, 'FaceColor', 'c',...
+%         'EdgeAlpha', 0.1, 'FaceAlpha', 0.3);
+%     
+%     bbox = @(vertArray) [min(vertArray) max(vertArray)];
+%     rectInRect = @(r1, r2) all(r1(1:3) >= r2(1:3)) && all(r1(4:6) <= r2(4:6));
+%         
+%     if nargin < 2
+%         % Make a bounding box that EVERYTHING reaches outside.
+%         nullBounds = [Inf Inf Inf -Inf -Inf -Inf];
+%         excludeBounds = nullBounds;
+%     end
+%     
+%     numMeshes = numel(meshes);
+%     disjointMeshes = cell(size(meshes));
+%     
+%     % now figure out the disjointeries
+%     for mm = 1:numMeshes
+%     if ~rectInRect(bbox(meshes{mm}.vertices), excludeBounds)
+%     
+%         v = meshes{mm}.vertices;
+%         f = meshes{mm}.faces;
+%         
+%         for nn = (mm+1):numMeshes
+%         if ~rectInRect(bbox(meshes{nn}.vertices), excludeBounds)
+%             
+%             v2 = meshes{nn}.vertices;
+%             f2 = meshes{nn}.faces;
+%             
+%             [v, f] = neflab.nefDifference(v, f, v2, f2);
+%         end
+%         end
+%         
+%         disjointMeshes{mm}.vertices = v;
+%         disjointMeshes{mm}.faces = f;
+%         disjointMeshes{mm}.material = meshes{mm}.material;
+%         
+%     end
+%     end
+% end
 
 function meshes = uniteMaterials(inMeshes)
     
