@@ -625,10 +625,24 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
 
     for nn = 1:N
         bounds = srcMeasInputs{nn}.bounds;
-        extent = bounds(4:6) - bounds(1:3);
-
-
-        if nnz(extent) == 0 % it's a point
+        
+        if ~isempty(bounds)
+            extent = bounds(4:6) - bounds(1:3);
+        else
+            extent = [];
+        end
+        
+        if isempty(bounds)
+            % Selection should be the entire space!
+            selectAllName = sprintf('selectAll_%s_%i', prefix, nn);
+            
+            selAll = model.selection.create('sel1', 'Explicit');
+            selAll.all;
+            selAll.label(selectAllName);
+            
+            selectionName = selectAllName;
+            
+        elseif nnz(extent) == 0 % it's a point
             
             ptName = sprintf('pt_%s_%i', prefix, nn);
             pt = geom.feature.create(ptName, 'Point');
@@ -700,8 +714,12 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
         else
             error('wut.');
         end
-
-        srcMeasRecords{nn}.dimensions = nnz(extent);
+        
+        if isempty(extent)
+            srcMeasRecords{nn}.dimensions = -1 % whole space
+        else
+            srcMeasRecords{nn}.dimensions = nnz(extent);
+        end
         srcMeasRecords{nn}.selectionName = selectionName;
     end
 
@@ -976,6 +994,8 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
     %% Adjust for measurements!
     %
     
+    % For measurements with empty bounds, the whole space, this does
+    % nothing.
     if ~isempty(srcMeasStructs)
         nonPMLChunks = vennChunks(nonPMLChunks, srcMeasStructs);
     end
