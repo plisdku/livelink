@@ -12,7 +12,11 @@ X.HMax = 2e-3;
 
 X = parseargs(X, varargin{:});
 
-extents = X.Bounds(4:6) - X.Bounds(1:3);
+if ~isempty(X.Bounds)
+    extents = X.Bounds(4:6) - X.Bounds(1:3);
+else
+    extents = [];
+end
 
 numMeas = length(LL_MODEL.measurements);
 
