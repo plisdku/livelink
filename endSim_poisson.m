@@ -1343,8 +1343,13 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
     assert(numel(measurements) == 1);
     
     bounds = measurements{1}.bounds;
-    extent = bounds(4:6) - bounds(1:3);
-    measDims = nnz(extent);
+    if ~isempty(bounds)
+        extent = bounds(4:6) - bounds(1:3);
+        measDims = nnz(extent);
+    else
+        extent = [];
+        measDims = 3;
+    end
     
     % The surfaces data set should export the dual pressure DF at
     % all points on all surfaces.
