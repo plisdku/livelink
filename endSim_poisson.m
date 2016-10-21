@@ -636,7 +636,7 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
             % Selection should be the entire space!
             selectAllName = sprintf('selectAll_%s_%i', prefix, nn);
             
-            selAll = model.selection.create('sel1', 'Explicit');
+            selAll = model.selection.create(selectAllName, 'Explicit');
             selAll.all;
             selAll.label(selectAllName);
             
