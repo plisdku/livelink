@@ -1028,7 +1028,7 @@ function srcMeasMeshes = gatherSrcMeasMeshes(srcMeasStructs)
     srcMeasMeshes = {};
     nOut = 0;
     for nn = 1:numel(srcMeasStructs)
-        if srcMeasStructs{nn}.dimensions == 3
+        if srcMeasStructs{nn}.dimensions == 3 && isfield(srcMeasStructs{nn}, 'vertices')
             srcMeasMeshes{nOut+1}.faces = srcMeasStructs{nn}.faces;
             srcMeasMeshes{nOut+1}.vertices = srcMeasStructs{nn}.vertices;
         end
