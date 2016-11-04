@@ -401,11 +401,6 @@ function comsolAssignMaterials(model, geom, chunks, ...
         domainMaterial = dlmread(domainMaterialsFile);
     else
         domainChunks = smallestEnclosingChunks(model, geom, chunks);
-        %chunkBoundaries = cell(size(chunks)); % not used
-        %for cc = 1:length(chunks)
-        %    chunkBoundaries{cc} = ll.outerDomainBoundaryEntities(model, find(domainChunks == cc));
-        %end
-
         allMaterials = cellfun(@(a) a.material, chunks);
         domainMaterial = allMaterials(domainChunks);
         dlmbarf(domainMaterialsFile, domainMaterial);
