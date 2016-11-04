@@ -8,13 +8,17 @@ X.ForwardField = [];
 X.DualField = [];
 X.Points = [];
 X.Function = [];
+X.HMax = 2e-3;
 
 X = parseargs(X, varargin{:});
 
-extents = X.Bounds(4:6) - X.Bounds(1:3);
-
-numMeas = length(LL_MODEL.measurements);
-selectionName = sprintf('measurement_%d', numMeas);
+if ~isempty(X.Bounds)
+    extents = X.Bounds(4:6) - X.Bounds(1:3);
+    dimensions = nnz(extents);
+else
+    extents = [];
+    dimensions = 3;
+end
 
 exportFilename = sprintf('_export_%i.txt', numMeas);
 importFilename = sprintf('_import_%i.txt', numMeas);
@@ -28,18 +32,22 @@ if ischar(X.DualField)
 end
 
 % Write a provisional import file so COMSOL does not crash
-fieldVals = zeros(size(X.Points,1), length(X.ForwardField));
+if strcmpi(X.ForwardField{1}, 'V')
+    fieldVals = zeros(size(X.Points,1), 1);
+elseif strcmpi(X.ForwardField{1}, 'E')
+    fieldVals = zeros(size(X.Points,1), 3);
+end
 exportVals = [X.Points, fieldVals];
-dlmwrite(importFilename, exportVals);
+dlmbarf(importFilename, exportVals);
 
 measStruct = struct('bounds', X.Bounds, ...
-    'dimensions', nnz(extents), ...
-    'selectionName', selectionName, ...
+    'dimensions', dimensions, ...
     'function', X.Function, ...
     'forwardField', X.ForwardField, ...
     'dualField', X.DualField, ...
     'points', X.Points, ...
     'export', exportFilename, ...
+    'hmax', X.HMax, ...
     'import', importFilename);
 
 % need selectionName
