@@ -752,7 +752,7 @@ function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
     % now figure out the disjointeries
     for mm = numMeshes:-1:1
     if ~rectInRect(bbox(meshes{mm}.vertices), excludeBounds)
-        fprintf('\tdisjointing mesh %i with...\n', mm)
+        fprintf('\tdisjointing mesh %i...\n', mm)
         v = meshes{mm}.vertices;
         f = meshes{mm}.faces;
         
@@ -973,8 +973,13 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
     
     %% Structure not in PML!
     
-    nonPMLChunks = uniteMaterials(disjointMeshes);
-    
+    doUniteMaterials = 1;
+    if doUniteMaterials
+        nonPMLChunks = uniteMaterials(disjointMeshes);
+    else
+        warning('Not uniting materials.');
+        nonPMLChunks = disjointMeshes;
+    end
     
     %% Adjust for measurements!
     %
@@ -1009,6 +1014,9 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
 end
 
 function chunkFiles = writeSTEP(chunks, stepFile)
+    
+    pl = @(mesh) flatPatch('Vertices', mesh.vertices, 'Faces', mesh.faces,...
+        'FaceColor', 'g', 'EdgeAlpha', 0.1, 'FaceAlpha', 0.2);
     
     if ~exist('importMeshes', 'dir')
         mkdir('importMeshes');

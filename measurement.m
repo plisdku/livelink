@@ -20,6 +20,7 @@ else
     dimensions = 3;
 end
 
+numMeas = length(LL_MODEL.measurements);
 exportFilename = sprintf('_export_%i.txt', numMeas);
 importFilename = sprintf('_import_%i.txt', numMeas);
 
