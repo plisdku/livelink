@@ -18,12 +18,11 @@ function disjointMeshes = endSim_poisson(varargin)
     model.modelNode.create('mod1');
     geom = model.geom.create('geom1', 3);
     
-
     %% Figure out whether we can read things out of a file or not.
     
     [stepFile, movableDomainsFile, domainMaterialsFile] = ...
         generateFileNamesFromGeometry(LL_MODEL.meshes, bounds);
-
+    
     % I'm not using the cache at present---though I should---but here is
     % the test for its existence.
     cacheExists = exist(stepFile, 'file') && exist(movableDomainsFile, 'file') ...
@@ -68,7 +67,7 @@ function disjointMeshes = endSim_poisson(varargin)
     % and to exclude domains from meshing as needed (e.g. for electrodes).
     
     %[meshDomains, meshOuterBoundaries] = findMeshEntities(model, geom, LL_MODEL.meshes);
-    [meshDomains, meshOuterBoundaries, meshNewBoundaries] = findMeshEntities(model, geom, disjointMeshes);
+    [meshDomains, ~, meshNewBoundaries] = findMeshEntities(model, geom, disjointMeshes);
     
     % Create selections named 'boundary_%i' for each mesh.
     % These are for *new* boundaries added by each input mesh, so each
@@ -147,9 +146,6 @@ function disjointMeshes = endSim_poisson(varargin)
             callbacks(model, LL_MODEL.forwardCallback, ...
                 LL_MODEL.measurements);
             
-            % INSERT CHARGED PARTICLE OPTICS HERE
-            % Also... run the field export here as needed!
-            
             if X.Gradient
                 % Dual: run Study Step 2 through Stationary 2
                 model.sol('sol1').runFromTo('st2', 's2');
@@ -163,7 +159,6 @@ function disjointMeshes = endSim_poisson(varargin)
             keyboard
             % attempt remeshing
             % Get error
-            
         end
     end
 
@@ -592,7 +587,6 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
         bounds = srcMeasInputs{nn}.bounds;
         extent = bounds(4:6) - bounds(1:3);
 
-
         if nnz(extent) == 0 % it's a point
             
             ptName = sprintf('pt_%s_%i', prefix, nn);
@@ -883,18 +877,13 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
     disjointMeshes = makeDisjointInputs(meshes);
     %fprintf('Done with the difference operations.\n');
     
-    % Make similar disjoint meshes but skip everything that does not reach PML.
-    % This will really speed things up when intersecting every PML block with every
-    % material block.
-    
     pl = @(mesh) flatPatch('Vertices', mesh.vertices, 'Faces', mesh.faces,...
         'FaceColor', 'g', 'EdgeAlpha', 0.1, 'FaceAlpha', 0.2);
     
-    srcMeasMeshes = gatherSrcMeasMeshes(srcMeasStructs);
-
     %% Structure not in PML!
     
     nonPMLChunks = uniteMaterials(disjointMeshes);
+    
     
     %% Adjust for measurements!
     %
@@ -925,21 +914,6 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
     %assertDisjoint(nonPMLChunks);
     
 end
-
-function srcMeasMeshes = gatherSrcMeasMeshes(srcMeasStructs)
-
-    srcMeasMeshes = {};
-    nOut = 0;
-    for nn = 1:numel(srcMeasStructs)
-        if srcMeasStructs{nn}.dimensions == 3
-            srcMeasMeshes{nOut+1}.faces = srcMeasStructs{nn}.faces;
-            srcMeasMeshes{nOut+1}.vertices = srcMeasStructs{nn}.vertices;
-        end
-        nOut = nOut + 1;
-    end
-
-end
-
 
 function chunkFiles = writeSTEP(chunks, stepFile)
     

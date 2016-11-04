@@ -887,7 +887,6 @@ function [nonPMLChunks, pmlChunks] = processGeometry(meshes, ...
     pl = @(mesh) flatPatch('Vertices', mesh.vertices, 'Faces', mesh.faces, 'FaceColor', 'g', ...
         'EdgeAlpha', 0.1, 'FaceAlpha', 0.2);
     
-    srcMeasMeshes = gatherSrcMeasMeshes(srcMeasStructs);
     pmlMeshes = makePMLMeshes(pmlBounds, nonPMLBounds);
     pmlChunks = makePMLPieces(pmlMeshes, uniteMaterials(disjointMeshesInPML));
     numPMLChunks = numel(pmlChunks);
@@ -905,21 +904,6 @@ function [nonPMLChunks, pmlChunks] = processGeometry(meshes, ...
     writeSTEP([nonPMLChunks, pmlChunks], stepFile);
     
 end
-
-function srcMeasMeshes = gatherSrcMeasMeshes(srcMeasStructs)
-
-    srcMeasMeshes = {};
-    nOut = 0;
-    for nn = 1:numel(srcMeasStructs)
-        if srcMeasStructs{nn}.dimensions == 3
-            srcMeasMeshes{nOut+1}.faces = srcMeasStructs{nn}.faces;
-            srcMeasMeshes{nOut+1}.vertices = srcMeasStructs{nn}.vertices;
-        end
-        nOut = nOut + 1;
-    end
-
-end
-
 
 function chunkFiles = writeSTEP(chunks, stepFile)
     
