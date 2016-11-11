@@ -35,7 +35,7 @@ jac = m{1}.jacobian;
 
 if isempty(jac)
     warning('No Jacobian!  Returning DF = 0.');
-    dFdp = 0*params;
+    dFdp = 0*params';
     integrals = [];
     return
 end
