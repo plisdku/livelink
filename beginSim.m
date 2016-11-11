@@ -10,6 +10,14 @@ X.Physics = 'maxwell';
 
 X = parseargs(X , varargin{:});
 
+if isnumeric(X.HMax)
+    X.HMax = num2str(X.HMax);
+end
+
+if isnumeric(X.HMin)
+    X.HMin = num2str(X.HMin);
+end
+
 global LL_MODEL;
 
 if strcmpi(X.Physics, 'maxwell')
