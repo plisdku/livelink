@@ -33,6 +33,13 @@ verts = m{1}.patchVertices;
 
 jac = m{1}.jacobian;
 
+if isempty(jac)
+    warning('No Jacobian!  Returning DF = 0.');
+    dFdp = 0*params';
+    integrals = [];
+    return
+end
+
 %%
 % 
 % figure(1); clf

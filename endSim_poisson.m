@@ -140,10 +140,13 @@ function disjointMeshes = endSim_poisson(varargin)
     succeeded = 0;
     tries = 1;
     while ~succeeded
-        try
+        %try
             % Forward: run Study Step 1 through Save Solutions 1
             model.sol('sol1').runFromTo('st1', 'su1');
             
+            if X.SaveFields
+                model.save([pwd filesep 'fieldsforward_' X.MPH]);
+            end
             callbacks(model, LL_MODEL.forwardCallback, ...
                 LL_MODEL.measurements);
             
@@ -159,10 +162,10 @@ function disjointMeshes = endSim_poisson(varargin)
             if X.SaveFields
                 model.save([pwd filesep 'fields_' X.MPH]);
             end
-        catch crapception
-            keyboard
+        %catch crapception
+           % keyboard
             % attempt remeshing
-        end
+        %end
     end
 
     if tries > 1
@@ -220,13 +223,13 @@ function callbacks(model, forwardCallback, measurements)
         %ny = numel(unique(meas.points(:,2)));
         %nz = numel(unique(meas.points(:,3)));
         %sz = [nx ny nz];
-        [F, DF] = meas.function(values);
+        [F, DF] = meas.function(AA(:,1:3), values);
         
-        adj_src = prefactor*reshape(-8.85e-12 * DF, size(meas.points,1), []);
+        %adj_src = prefactor*reshape(-8.85e-12 * DF, size(meas.points,1), []);
         
-        
+        adj_src = prefactor*-8.85e-12 * DF;
         % Write the import
-        dlmbarf(meas.import, [meas.points, adj_src]);
+        dlmbarf(meas.import, [AA(:,1:3), adj_src]);
         %writegrid(meas.import, ...
         %    meas.points(:,1), meas.points(:,2), meas.points(:,3), ...
         %    adj_src(:));
@@ -252,6 +255,9 @@ function doExport(model, exportStruct, export_name)
     assert(size(exportStruct.points,2) == 3);
     dlmbarf(pointFile, exportStruct.points);
     
+
+
+
     export = model.result.export.create(export_name, 'Data');
     export.label(export_name);
     export.set('location', 'file');
@@ -619,10 +625,24 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
 
     for nn = 1:N
         bounds = srcMeasInputs{nn}.bounds;
-        extent = bounds(4:6) - bounds(1:3);
-
-
-        if nnz(extent) == 0 % it's a point
+        
+        if ~isempty(bounds)
+            extent = bounds(4:6) - bounds(1:3);
+        else
+            extent = [];
+        end
+        
+        if isempty(bounds)
+            % Selection should be the entire space!
+            selectAllName = sprintf('selectAll_%s_%i', prefix, nn);
+            
+            selAll = model.selection.create(selectAllName, 'Explicit');
+            selAll.all;
+            selAll.label(selectAllName);
+            
+            selectionName = selectAllName;
+            
+        elseif nnz(extent) == 0 % it's a point
             
             ptName = sprintf('pt_%s_%i', prefix, nn);
             pt = geom.feature.create(ptName, 'Point');
@@ -694,8 +714,12 @@ function srcMeasRecords = makeSourcesOrMeasurements(model, geom,...
         else
             error('wut.');
         end
-
-        srcMeasRecords{nn}.dimensions = nnz(extent);
+        
+        if isempty(extent)
+            srcMeasRecords{nn}.dimensions = 3; % whole space
+        else
+            srcMeasRecords{nn}.dimensions = nnz(extent);
+        end
         srcMeasRecords{nn}.selectionName = selectionName;
     end
 
@@ -732,30 +756,71 @@ function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
     numMeshes = numel(meshes);
     disjointMeshes = cell(size(meshes));
     
-    % now figure out the disjointeries
-    for mm = 1:numMeshes
-    if ~rectInRect(bbox(meshes{mm}.vertices), excludeBounds)
+    vAccum = [];
+    fAccum = [];
     
+    % now figure out the disjointeries
+    for mm = numMeshes:-1:1
+    if ~rectInRect(bbox(meshes{mm}.vertices), excludeBounds)
+        fprintf('\tdisjointing mesh %i with...\n', mm)
         v = meshes{mm}.vertices;
         f = meshes{mm}.faces;
         
-        for nn = (mm+1):numMeshes
-        if ~rectInRect(bbox(meshes{nn}.vertices), excludeBounds)
-            
-            v2 = meshes{nn}.vertices;
-            f2 = meshes{nn}.faces;
-            
-            [v, f] = neflab.nefDifference(v, f, v2, f2);
-        end
-        end
+        [v,f] = neflab.nefDifference(v, f, vAccum, fAccum);
         
         disjointMeshes{mm}.vertices = v;
         disjointMeshes{mm}.faces = f;
         disjointMeshes{mm}.material = meshes{mm}.material;
         
+        [vAccum, fAccum] = neflab.nefUnion(vAccum, fAccum, ...
+            v, f);
     end
     end
+    fprintf('\tDone making disjoint meshes\n');
 end
+
+% THIS IS THE BRUTE_FORCE VERSION
+% function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
+%     
+%     myPatch = @(v,f,c) patch('Vertices', v, 'Faces', f, 'FaceColor', 'c',...
+%         'EdgeAlpha', 0.1, 'FaceAlpha', 0.3);
+%     
+%     bbox = @(vertArray) [min(vertArray) max(vertArray)];
+%     rectInRect = @(r1, r2) all(r1(1:3) >= r2(1:3)) && all(r1(4:6) <= r2(4:6));
+%         
+%     if nargin < 2
+%         % Make a bounding box that EVERYTHING reaches outside.
+%         nullBounds = [Inf Inf Inf -Inf -Inf -Inf];
+%         excludeBounds = nullBounds;
+%     end
+%     
+%     numMeshes = numel(meshes);
+%     disjointMeshes = cell(size(meshes));
+%     
+%     % now figure out the disjointeries
+%     for mm = 1:numMeshes
+%     if ~rectInRect(bbox(meshes{mm}.vertices), excludeBounds)
+%     
+%         v = meshes{mm}.vertices;
+%         f = meshes{mm}.faces;
+%         
+%         for nn = (mm+1):numMeshes
+%         if ~rectInRect(bbox(meshes{nn}.vertices), excludeBounds)
+%             
+%             v2 = meshes{nn}.vertices;
+%             f2 = meshes{nn}.faces;
+%             
+%             [v, f] = neflab.nefDifference(v, f, v2, f2);
+%         end
+%         end
+%         
+%         disjointMeshes{mm}.vertices = v;
+%         disjointMeshes{mm}.faces = f;
+%         disjointMeshes{mm}.material = meshes{mm}.material;
+%         
+%     end
+%     end
+% end
 
 function meshes = uniteMaterials(inMeshes)
     
@@ -764,10 +829,10 @@ function meshes = uniteMaterials(inMeshes)
     numInputs = numel(inMeshes);
     for mm = 1:numInputs
     if ~isempty(inMeshes{mm})
-        
         iMat = inMeshes{mm}.material;
         
         if iMat <= numel(meshes) && isfield(meshes{iMat}, 'vertices')
+            fprintf('\tuniting mesh %i with its material...\n', mm)
             % If the material has been unioned before, unite with previous.
             [meshes{iMat}.vertices, meshes{iMat}.faces] = neflab.nefUnion(...
                 inMeshes{mm}.vertices, inMeshes{mm}.faces, ...
@@ -791,19 +856,20 @@ function outChunks = vennChunks(inChunks, subChunks)
     
     outChunks = inChunks;
     for iSub = 1:numel(subChunks)
-    if subChunks{iSub}.dimensions == 3
+    if subChunks{iSub}.dimensions == 3 && isfield(subChunks{iSub}, 'vertices') % 3D w/o vertices is whole space
         
         numInChunks = numel(outChunks);
         nNew = numInChunks + 1;
         
         for iIn = 1:numInChunks
-            
+            fprintf('\tIntersecting %i with %i...\n', iIn, iSub);
             [vInter, fInter] = neflab.nefIntersection(...
                 outChunks{iIn}.vertices, outChunks{iIn}.faces, ...
                 subChunks{iSub}.vertices, subChunks{iSub}.faces);
             
             if ~isempty(vInter)
                 
+                fprintf('\tDiffing %i with %i...\n', iIn, iSub);
                 [vDiff, fDiff] = neflab.nefDifference(...
                     outChunks{iIn}.vertices, outChunks{iIn}.faces, ...
                     subChunks{iSub}.vertices, subChunks{iSub}.faces);
@@ -928,6 +994,8 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
     %% Adjust for measurements!
     %
     
+    % For measurements with empty bounds, the whole space, this does
+    % nothing.
     if ~isempty(srcMeasStructs)
         nonPMLChunks = vennChunks(nonPMLChunks, srcMeasStructs);
     end
@@ -960,7 +1028,7 @@ function srcMeasMeshes = gatherSrcMeasMeshes(srcMeasStructs)
     srcMeasMeshes = {};
     nOut = 0;
     for nn = 1:numel(srcMeasStructs)
-        if srcMeasStructs{nn}.dimensions == 3
+        if srcMeasStructs{nn}.dimensions == 3 && isfield(srcMeasStructs{nn}, 'vertices')
             srcMeasMeshes{nOut+1}.faces = srcMeasStructs{nn}.faces;
             srcMeasMeshes{nOut+1}.vertices = srcMeasStructs{nn}.vertices;
         end
@@ -1254,13 +1322,13 @@ function comsolPlots(X, model)
         model.result('pg3').feature('surf1').set('colortable', 'OrangeCrush');
 
         model.result('pg3').feature('arws1').set(...
-            'expr', {'nx*DF*(DF<0)' 'ny*DF*(DF<0)' 'nz*DF*(DF<0)'});
+            'expr', {'nx*DF*(DF>0)' 'ny*DF*(DF>0)' 'nz*DF*(DF>0)'});
         model.result('pg3').feature('arws1').set('arrowbase', 'head');
         %model.result('pg3').feature('arws1').set('scale', '3.2787942186813154E-10');
         %model.result('pg3').feature('arws1').set('scaleactive', false);
 
         model.result('pg3').feature('arws2').set(...
-            'expr', {'nx*DF*(DF>0)' 'ny*DF*(DF>0)' 'nz*DF*(DF>0)'});
+            'expr', {'nx*DF*(DF<0)' 'ny*DF*(DF<0)' 'nz*DF*(DF<0)'});
         model.result('pg3').feature('arws2').set('arrowbase', 'tail');
         model.result('pg3').feature('arws2').set('color', 'blue');
         %model.result('pg3').feature('arws2').set('scale', '4.240512841916214E-10');
@@ -1277,8 +1345,13 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
     assert(numel(measurements) == 1);
     
     bounds = measurements{1}.bounds;
-    extent = bounds(4:6) - bounds(1:3);
-    measDims = nnz(extent);
+    if ~isempty(bounds)
+        extent = bounds(4:6) - bounds(1:3);
+        measDims = nnz(extent);
+    else
+        extent = [];
+        measDims = 3;
+    end
     
     % The surfaces data set should export the dual pressure DF at
     % all points on all surfaces.
@@ -1308,7 +1381,9 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
         
         export = model.result.export.create(export_name, 'Data');
         export.label(export_name);
-        export.set('location', 'file');
+        %export.set('location', 'file');
+        export.set('resolution', 'custom');
+        export.set('lagorder', '3');
         %export.set('descr', {'Electric potential'});
         export.set('filename', measurements{1}.export);
         %export.set('unit', {'V'});

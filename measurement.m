@@ -12,7 +12,30 @@ X.HMax = [];
 
 X = parseargs(X, varargin{:});
 
-extents = X.Bounds(4:6) - X.Bounds(1:3);
+if isnumeric(X.HMax)
+    X.HMax = num2str(X.HMax);
+end
+
+%if isnumeric(X.HMin)
+%    X.HMin = num2str(X.HMin);
+%end
+
+% Bounds handling
+meshFaces = [];
+meshVertices = [];
+if ~isempty(X.Bounds)
+    dimensions = nnz(X.Bounds(4:6) - X.Bounds(1:3));
+    
+    if dimensions == 3
+        measMesh = dmodel.Rect(@(p) X.Bounds).mesh;
+        meshFaces = measMesh.faces;
+        meshVertices = measMesh.patchVertices;
+    end
+else
+    dimensions = 3;
+end
+
+
 
 numMeas = length(LL_MODEL.measurements);
 
@@ -37,7 +60,9 @@ exportVals = [X.Points, fieldVals];
 dlmbarf(importFilename, exportVals);
 
 measStruct = struct('bounds', X.Bounds, ...
-    'dimensions', nnz(extents), ...
+    'dimensions', dimensions, ...
+    'meshFaces', meshFaces, ...
+    'meshVertices', meshVertices, ...
     'function', X.Function, ...
     'forwardField', X.ForwardField, ...
     'dualField', X.DualField, ...
