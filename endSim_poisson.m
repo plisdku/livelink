@@ -1196,12 +1196,14 @@ function comsolMeshParameters(theMesh, model, measurements, domains, ...
     end
     
     % Change mesh size for measurement.
-    sz = theMesh.feature.create('measSize', 'Size');
-    sz.selection.geom('geom1', measurements{1}.dimensions);
-    sz.selection.named('measSel');
-    sz.set('custom', 'on');
-    sz.set('hmaxactive', 'on');
-    sz.set('hmax', measurements{1}.hmax);
+    if ~isempty(measurements{1}.hmax)
+        sz = theMesh.feature.create('measSize', 'Size');
+        sz.selection.geom('geom1', measurements{1}.dimensions);
+        sz.selection.named('measSel');
+        sz.set('custom', 'on');
+        sz.set('hmaxactive', 'on');
+        sz.set('hmax', measurements{1}.hmax);
+    end
     %warning('Measurement hmax is 15');
 
     theMesh.feature.create('ftri1', 'FreeTri');
