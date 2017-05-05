@@ -43,5 +43,6 @@ meshStruct = struct('material', X.Material, ...
     'vertices', v, 'faces', f, 'jacobian', jac, ...
     'hmax', X.HMax, 'hgrad', X.HGrad, 'hmin', X.HMin, 'exclude', X.Exclude);
 
+LL_MODEL.parameterizedMeshes{end+1} = X.Mesh;
 LL_MODEL.meshes{numel(LL_MODEL.meshes)+1} = meshStruct;
 

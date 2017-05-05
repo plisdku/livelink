@@ -1,6 +1,9 @@
 function disjointMeshes = endSim_poisson(varargin)
     % endSim
     
+    disp('Starting endSim_poisson')
+    t_start = tic;
+    
     X.MPH = 'fromMatlab.mph';
     X.StopEarly = false;
     X.SaveFields = false;
@@ -48,14 +51,18 @@ function disjointMeshes = endSim_poisson(varargin)
     
     % chunks: array of structs with vertices, faces and a material tag.
     % they are mutually disjoint and their material tags may not be unique.
+    t_Stepfile = tic;
+    fprintf('start Process Geometry \n')
     
     [disjointMeshes, chunks] = processGeometry(LL_MODEL.meshes, [sourceStructs measStructs], stepFile);
     
     comsolSTEPImport(geom, stepFile);
     
-    model.save([pwd filesep 'preRunGeometry.mph']);
+    model.save([pwd filesep 'comsol_preRunGeometry.mph']);
     comsolRunGeometry(geom);
-    model.save([pwd filesep 'postRunGeometry.mph']);
+    model.save([pwd filesep 'comsol_postRunGeometry.mph']);
+    
+    fprintf('Finished creating the Stepfile and saved Geometry (duration of the task: %d, total duration %d) \n', toc(t_Stepfile), toc(t_start))
     
     %% Assign a material to each domain
     % Get the material for each chunk, then get the chunk for each domain.
@@ -116,21 +123,24 @@ function disjointMeshes = endSim_poisson(varargin)
     %
     % For ever solution failure
     %  make the mesh a bit smaller
-    
+    t_meshing = tic;
     comsolMesh(model, meshDomains, LL_MODEL.meshes, ...
         LL_MODEL.measurements, ...
         LL_MODEL.hmax, LL_MODEL.hmin, LL_MODEL.hgrad);
     
-    model.save([pwd filesep X.MPH]);
+    model.save([pwd filesep 'comsol_aftermeshing_' X.MPH]);
+    
+    fprintf('Finished meshing (duration of the task: %d, duration: %d) \n', toc(t_meshing), toc(t_start))
     
     %% Save the model before running
     
-    model.save([pwd filesep X.MPH]);
     if X.StopEarly
-        model.save([pwd filesep 'saveEarly.mph']);
+        model.save([pwd filesep 'comsol_saveEarly.mph']);
         warning('quitting early')
         return
     end
+    
+    fprintf('Created and saved the model (duration of task: %d, total duration: %d ) \n', toc(t_start), toc(t_start))
 
     %% Run it all
     
@@ -142,14 +152,18 @@ function disjointMeshes = endSim_poisson(varargin)
     while ~succeeded
         %try
             % Forward: run Study Step 1 through Save Solutions 1
+            t_forward = tic;
             model.sol('sol1').runFromTo('st1', 'su1');
             
             if X.SaveFields
-                model.save([pwd filesep 'fieldsforward_' X.MPH]);
+                model.save([pwd filesep 'comsol_fieldsforward_' X.MPH]);
             end
+            fprintf('Solved the Forward Field (duration of the task: %d, total duration: %d) \n', toc(t_forward), toc(t_start))
+            t_afterForward = tic;
+            
             callbacks(model, LL_MODEL.forwardCallback, ...
                 LL_MODEL.measurements);
-            
+
             % INSERT CHARGED PARTICLE OPTICS HERE
             % Also... run the field export here as needed!
             
@@ -157,10 +171,11 @@ function disjointMeshes = endSim_poisson(varargin)
                 % Dual: run Study Step 2 through Stationary 2
                 model.sol('sol1').runFromTo('st2', 's2');
             end
-            
+            fprintf('Solved the Dual Field (duration of the task: %d, total duration: %d) \n', toc(t_afterForward), toc(t_start))
+
             succeeded = 1;
             if X.SaveFields
-                model.save([pwd filesep 'fields_' X.MPH]);
+                model.save([pwd filesep 'comsol_bothfields_' X.MPH]);
             end
         %catch crapception
            % keyboard
@@ -354,7 +369,7 @@ function comsolRunGeometry(geom)
                 un.selection('input').set(...
                     { sprintf('sca1(%i)', pairs(pp,1)), ...
                       sprintf('sca1(%i)', pairs(pp,2)) } );
-                model.save([pwd filesep 'preRunGeometry.mph']);
+                model.save([pwd filesep 'comsol_preRunGeometry.mph']);
                 geom.run();
                 succeeded = true;
                 fprintf('Succeded!\n');
@@ -448,7 +463,7 @@ end
     
 function comsolForwardPhysics(model, meshes, elementOrderString)
 
-    model.save([pwd filesep 'prePhysics.mph']);
+    model.save([pwd filesep 'comsol_prePhysics.mph']);
     
     model.physics.create('es', 'Electrostatics', 'geom1');
     model.physics('es').prop('ShapeProperty').set('order_electricpotential',...
@@ -766,10 +781,10 @@ function disjointMeshes = makeDisjointInputs(meshes, excludeBounds)
         v = meshes{mm}.vertices;
         f = meshes{mm}.faces;
         
-        [v,f] = neflab.nefDifference(v, f, vAccum, fAccum);
+        [v2,f2] = neflab.nefDifference(v, f, vAccum, fAccum);
         
-        disjointMeshes{mm}.vertices = v;
-        disjointMeshes{mm}.faces = f;
+        disjointMeshes{mm}.vertices = v2;
+        disjointMeshes{mm}.faces = f2;
         disjointMeshes{mm}.material = meshes{mm}.material;
         
         [vAccum, fAccum] = neflab.nefUnion(vAccum, fAccum, ...
@@ -974,10 +989,12 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
 
     %% Create mutually disjoint input meshes!
     % Each mesh subtracts off all previous meshes.
+    fprintf('Start processGeometry \n')
     
+    t_disjoint = tic;
     disjointMeshes = makeDisjointInputs(meshes);
     %fprintf('Done with the difference operations.\n');
-    
+    fprintf('Done with disjointInputs (duration: %d)\n', toc(t_disjoint))
     % Make similar disjoint meshes but skip everything that does not reach PML.
     % This will really speed things up when intersecting every PML block with every
     % material block.
@@ -988,9 +1005,9 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
     srcMeasMeshes = gatherSrcMeasMeshes(srcMeasStructs);
 
     %% Structure not in PML!
-    
+    t_uniteMat = tic;
     nonPMLChunks = uniteMaterials(disjointMeshes);
-    
+    fprintf('Done with uniteMaterials (duration: %d) \n', toc(t_uniteMat))
     %% Adjust for measurements!
     %
     
@@ -1001,10 +1018,11 @@ function [disjointMeshes, nonPMLChunks] = processGeometry(meshes, srcMeasStructs
     end
     
     %% Create the STEP file and set up STEP import.
-    
+    t_writeStep = tic;
+    fprintf('Start writing the stepfile \n')
     %fprintf('Got to the STEP file.\n');
     writeSTEP(nonPMLChunks, stepFile);
-    
+    fprintf('Finished writing the step file (duration of the task: %d) \n', toc(t_writeStep))
     % Just for testing!  If needed.
     function assertDisjoint(chunks)
         for cc = 1:numel(chunks)
@@ -1504,7 +1522,7 @@ end
             globalSize.set('hmax', num2str(hmaxes(attempts)));
             globalSize.set('hmin', num2str(hmins(attempts)));
             globalSize.set('hgrad', num2str(hgrads(attempts)));
-            model.save([pwd filesep 'premesh.mph']);
+            model.save([pwd filesep 'comsol_premesh.mph']);
             theMesh.run();
             meshingSucceeded = true;
         catch exc
