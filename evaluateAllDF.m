@@ -13,6 +13,6 @@ end
 dFdp = zeros(1, length(params));
 
 for mm = 1:numMeshes
-    dFdp = dFdp + ll.evaluateDF(LL_MODEL.parameterizedMeshes{mm}, params);
+    dFdp = dFdp + ll.evaluateDF(LL_MODEL.meshes{mm}, params);
 end
 

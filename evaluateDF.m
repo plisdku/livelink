@@ -1,5 +1,6 @@
 %% Read DF data from COMSOL
-function [dFdp, integrals] = evaluateDF(movableMesh, params, filename, minFaceArea)
+function [dFdp, integrals] = evaluateDF(meshStruct, params, filename, minFaceArea)
+
 
 if nargin < 3
     filename = 'DF_on_surfaces.txt';
@@ -13,20 +14,21 @@ end
 fid = fopen(filename);
 % maxwell version (old version), without normal vectors
 %AA = cell2mat(textscan(fid, '%n%n%n%n', 'CommentStyle', '%'));
-AA = cell2mat(textscan(fid, '%n%n%n%n%n%n%n', 'CommentStyle', '%'));
+AA = cell2mat(textscan(fid, '%n%n%n%n%n%n%n%n', 'CommentStyle', '%'));
 fclose(fid);
 
 x = AA(:,1);
 y = AA(:,2);
 z = AA(:,3);
 DF = AA(:,4);
+E2n = AA(:,5);
 
 %% Get the triangles from the movable mesh.
 
 %params = [0 0 0 0 0 0]';
 numParams = numel(params);
 
-m = movableMesh.meshes(params);
+m = meshStruct.mesh.meshes(params);
 
 faces = m{1}.faces;
 verts = m{1}.patchVertices;
@@ -45,6 +47,7 @@ if nnz(jac) == 0
     integrals = [];
     return
 end
+%%
 
 %%
 % 
@@ -59,6 +62,12 @@ end
 linearInterp = TriScatteredInterp(x,y,z,DF, 'linear');
 nearestInterp = TriScatteredInterp(x,y,z,DF, 'nearest');
 maxDF = max(abs(DF(:)));
+
+
+linearInterpE2n = TriScatteredInterp(x,y,z,E2n, 'linear');
+nearestInterpE2n = TriScatteredInterp(x,y,z,E2n, 'nearest');
+maxE2n = max(abs(E2n(:)));
+
 
 omitCount = 0;
 
@@ -114,6 +123,9 @@ for ff = 1:numFaces
     pointwiseDF = saferTriScatteredInterp(linearInterp, nearestInterp, ...
         xx, maxDF );
     
+    pointwiseE2n = saferTriScatteredInterp(linearInterpE2n, nearestInterpE2n,...
+        xx, maxE2n);
+    
     if any(isnan(pointwiseDF(:)))
         warning('We have NaN.\n');
         keyboard
@@ -141,12 +153,15 @@ for ff = 1:numFaces
     
     addends = bsxfun(@times, ww.*pointwiseDF, verticalPerturbation);
     
+    addendsE2n = -meshStruct.voltagejacobian'*(ww.*pointwiseE2n); 
+    
+    
     if any(isnan(addends(:)))
         warning('We have NaN.\n');
         keyboard
     end
     
-    integrals(:,ff) = sum(addends, 2);
+    integrals(:,ff) = sum(addends + addendsE2n, 2);
     %fprintf('Integral = %s\n', num2str(integrals(ff)));
     
     if abs(integrals(:,ff)) > 1e26

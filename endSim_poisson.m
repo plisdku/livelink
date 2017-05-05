@@ -1432,7 +1432,7 @@ function comsolMeasurements(model, measurements, doCalculateGradient)
         model.result.export('exportSurfaceDF').set('data', 'dsetSurfaces');
         model.result.export('exportSurfaceDF').set('descr', {''});
         model.result.export('exportSurfaceDF').set('filename', 'DF_on_surfaces.txt');
-        model.result.export('exportSurfaceDF').set('expr', {'mod1.DF', 'nx', 'ny', 'nz'});
+        model.result.export('exportSurfaceDF').set('expr', {'mod1.DF','mod1.E2n', 'nx', 'ny', 'nz'});
         model.result.export('exportSurfaceDF').set('resolution', 'custom');
         model.result.export('exportSurfaceDF').set('lagorder', '5');
     end

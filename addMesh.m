@@ -38,11 +38,25 @@ end
 %fname = sprintf('mesh_%i.stl', numMeshes+1);
 %ll.meshToSTL(X.Mesh, fname);
 
-meshStruct = struct('material', X.Material, ...
-    'voltage', X.Voltage, 'surfacecharge', X.SurfaceCharge, ...
-    'vertices', v, 'faces', f, 'jacobian', jac, ...
+if isa(X.Voltage,'function_handle')
+    Voltage = X.Voltage(X.Parameters);
+    
+    vjac = dmodel.jacobian(X.Voltage, X.Parameters);
+    
+    
+else
+    Voltage = X.Voltage;
+    vjac = 0*X.Parameters';
+    
+end 
+
+
+
+meshStruct = struct('material', X.Material, 'mesh', X.Mesh, ...
+    'voltage', Voltage, 'surfacecharge', X.SurfaceCharge,...
+    'vertices', v, 'faces', f, 'jacobian', jac, 'voltagejacobian', vjac, ...
     'hmax', X.HMax, 'hgrad', X.HGrad, 'hmin', X.HMin, 'exclude', X.Exclude);
 
-LL_MODEL.parameterizedMeshes{end+1} = X.Mesh;
-LL_MODEL.meshes{numel(LL_MODEL.meshes)+1} = meshStruct;
+%LL_MODEL.parameterizedMeshes{end+1} = X.Mesh;
+LL_MODEL.meshes{numel(LL_MODEL.meshes)+1} = meshStruct; % put parameterized Mesh into Mesh
 
