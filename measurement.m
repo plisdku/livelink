@@ -8,7 +8,7 @@ X.ForwardField = [];
 X.DualField = [];
 X.Points = [];
 X.Function = [];
-X.HMax = 2e-3;
+X.HMax = [];
 
 X = parseargs(X, varargin{:});
 
