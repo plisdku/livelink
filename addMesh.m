@@ -14,6 +14,14 @@ X.Exclude = 0;
 
 X = parseargs(X, varargin{:});
 
+if isnumeric(X.HMax)
+    X.HMax = num2str(X.HMax);
+end
+
+if isnumeric(X.HMin)
+    X.HMin = num2str(X.HMin);
+end
+
 global LL_MODEL;
 
 m = X.Mesh.meshes(X.Parameters);
@@ -35,5 +43,6 @@ meshStruct = struct('material', X.Material, ...
     'vertices', v, 'faces', f, 'jacobian', jac, ...
     'hmax', X.HMax, 'hgrad', X.HGrad, 'hmin', X.HMin, 'exclude', X.Exclude);
 
+LL_MODEL.parameterizedMeshes{end+1} = X.Mesh;
 LL_MODEL.meshes{numel(LL_MODEL.meshes)+1} = meshStruct;
 
